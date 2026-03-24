@@ -1,15 +1,15 @@
-import Canvas from '@/components/Canvas';
+import Scene3D from '@/components/Scene3D';
 
 /**
- * Root page — renders the zoomable canvas with the culinary herbs demo.
+ * Root page — renders the 3D tile workspace with the culinary herbs demo.
  *
- * This is a server component that renders the Canvas client component.
- * The Canvas handles all interactive zoom/pan behavior client-side.
+ * This is a server component that renders the Scene3D client component.
+ * Scene3D uses Three.js/React Three Fiber for true 3D manipulation.
  */
 export default function Home() {
   return (
     <main className="h-full">
-      <Canvas />
+      <Scene3D />
     </main>
   );
 }

@@ -23,8 +23,9 @@ body {
 }
 
 /**
- * Canvas viewport — fills the screen, no overflow.
- * This is the camera/viewport layer.
+ * Canvas viewport — fills the screen.
+ * The `perspective` property is set inline from the component
+ * to create the 3D viewing frustum.
  */
 .canvas-viewport {
   width: 100vw;
@@ -34,6 +35,8 @@ body {
   cursor: grab;
   user-select: none;
   touch-action: none;
+  /* perspective is set inline via the component */
+  perspective-origin: 50% 50%;
 }
 
 .canvas-viewport:active {
@@ -41,15 +44,59 @@ body {
 }
 
 /**
- * Canvas world — the infinite surface that gets transformed.
- * All tiles exist on this layer. The viewport's transform
- * (scale + translate) determines what's visible.
+ * Canvas 3D scene — the container that gets transformed
+ * along X, Y, Z axes with tilt rotations.
+ * Must preserve 3D so child planes maintain their Z positions.
  */
-.canvas-world {
+.canvas-scene {
   position: absolute;
   top: 0;
   left: 0;
   will-change: transform;
+  transform-style: preserve-3d;
+}
+
+/**
+ * Depth plane — each nesting level is a separate plane in Z space.
+ * The plane floats at its designated Z depth and renders its grid.
+ */
+.depth-plane {
+  transform-style: preserve-3d;
+}
+
+/**
+ * Container tile in 3D mode — must preserve 3D for its children
+ * to sit on separate Z-planes behind it.
+ */
+.container-3d {
+  transform-style: preserve-3d;
+}
+
+/**
+ * Nested depth plane — children grid pushed back along Z.
+ * Maintains its own 3D context for deeper nesting.
+ */
+.nested-depth-plane {
+  transform-style: preserve-3d;
+}
+
+/**
+ * Canvas depth indicator — shows current Z position.
+ */
+.canvas-depth-indicator {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  border: 1px solid var(--tile-border);
+  z-index: 200;
+  font-family: var(--font-mono), monospace;
 }
 
 /**
@@ -100,6 +147,102 @@ body {
 }
 
 /**
+ * Scene3D HUD — controls legend (top-left).
+ */
+.scene3d-legend {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 12px 16px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 200;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  max-width: 200px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.scene3d-legend strong {
+  color: #374151;
+  font-size: 12px;
+}
+
+/**
+ * Scene3D HUD — selected tile info (top-right).
+ */
+.scene3d-info {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 16px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  border: 1px solid rgba(74, 124, 255, 0.2);
+  z-index: 200;
+  font-family: var(--font-mono), monospace;
+  box-shadow: 0 2px 8px rgba(74, 124, 255, 0.08);
+}
+
+.scene3d-info strong {
+  color: #374151;
+}
+
+/**
+ * Scene3D HUD — snap-to-grid button.
+ */
+.scene3d-btn {
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #4a7cff;
+  background: rgba(74, 124, 255, 0.08);
+  border: 1px solid rgba(74, 124, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.scene3d-btn:hover {
+  background: rgba(74, 124, 255, 0.15);
+}
+
+/**
+ * Scene3D HUD — shift mode indicator (bottom-center).
+ */
+.scene3d-shift-indicator {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #4a7cff;
+  background: rgba(74, 124, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid rgba(74, 124, 255, 0.25);
+  z-index: 200;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(74, 124, 255, 0.15); }
+  50% { box-shadow: 0 0 16px rgba(74, 124, 255, 0.3); }
+}
+
+/**
  * Card flip — back face styles.
  */
 .tile-back {
@@ -126,14 +269,6 @@ body {
   font-size: 9px;
   opacity: 0.5;
   margin-top: 4px;
-}
-
-/**
- * Nested grid wrapper — opacity is driven dynamically
- * by the zoom level in the TileGrid component.
- */
-.nested-grid-wrapper {
-  transition: opacity 0.15s ease;
 }
 
 /**
