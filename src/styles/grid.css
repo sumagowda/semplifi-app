@@ -1,0 +1,160 @@
+/**
+ * Fibonacci grid constants from the spec (array &c.pdf).
+ *
+ * Grid layout:
+ *   Horizontal: 89 + 55 + 144 + 55 + 233 + 55 + 144 + 55 + 89 = 919px
+ *   Vertical:   144 + 55 + 233 + 55 + 144 = 631px
+ *
+ * All values are logical pixels (CSS px).
+ * On retina displays, these render at 2x actual pixels.
+ */
+
+:root {
+  /* Fibonacci tile dimensions */
+  --fib-55: 55px;
+  --fib-89: 89px;
+  --fib-144: 144px;
+  --fib-233: 233px;
+
+  /* Active (zoomed) dimensions */
+  --fib-active-89: 233px;
+  --fib-active-144: 377px;
+  --fib-active-233: 610px;
+
+  /* Grid totals */
+  --grid-width: 919px;
+  --grid-height: 631px;
+
+  /* Grid gap */
+  --grid-gap: 55px;
+
+  /* Node padding by content type */
+  --padding-text: 8px;
+  --padding-vector: 0px;
+  --padding-raster: 3px;
+
+  /* Colors */
+  --tile-bg: #f8f9fa;
+  --tile-bg-hover: #f0f1f3;
+  --tile-border: #e2e4e8;
+  --tile-border-hover: #c8cbd0;
+  --container-bg: #eef1f5;
+  --container-label-bg: rgba(0, 0, 0, 0.04);
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a6a;
+  --text-muted: #8888a0;
+}
+
+/**
+ * The standard 5-column x 3-row Fibonacci grid.
+ * Columns: 89 | 144 | 233 | 144 | 89
+ * Rows:    144 | 233 | 144
+ */
+.fibonacci-grid {
+  display: grid;
+  grid-template-columns: var(--fib-89) var(--fib-144) var(--fib-233) var(--fib-144) var(--fib-89);
+  grid-template-rows: var(--fib-144) var(--fib-233) var(--fib-144);
+  gap: var(--grid-gap);
+  width: var(--grid-width);
+  height: var(--grid-height);
+}
+
+/**
+ * Individual tile base styles.
+ * Content type-specific padding is applied via data attributes.
+ */
+.tile {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-border);
+}
+
+.tile:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--tile-border-hover);
+}
+
+.tile[data-type='text'] {
+  padding: var(--padding-text);
+}
+
+.tile[data-type='vector'] {
+  padding: var(--padding-vector);
+}
+
+.tile[data-type='raster'] {
+  padding: var(--padding-raster);
+}
+
+.tile[data-type='container'] {
+  background: var(--container-bg);
+  cursor: pointer;
+  border: 1px dashed var(--tile-border);
+}
+
+.tile[data-type='container']:hover {
+  border-color: var(--tile-border-hover);
+  background: #e8ecf2;
+}
+
+/**
+ * Container tile label overlay
+ */
+.container-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 8px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  background: var(--container-label-bg);
+  z-index: 1;
+}
+
+/**
+ * Breadcrumb navigation for zoom levels
+ */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  border: 1px solid var(--tile-border);
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb-item:hover {
+  color: var(--text-primary);
+}
+
+.breadcrumb-separator {
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
