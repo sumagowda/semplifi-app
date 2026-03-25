@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useFrame, useThree, ThreeEvent } from '@react-three/fiber';
-import { Html, RoundedBox } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Tile as TileType } from '@/types/tile';
 import { useNavigationStore } from '@/stores/useNavigationStore';
@@ -17,22 +17,36 @@ interface Tile3DProps {
 /** Scale factor: 100px = 1 world unit */
 const SCALE = 0.01;
 
-/** Tile thickness — thick enough to see from an angle */
-const TILE_DEPTH = 0.12;
+/** Tile thickness — chunky enough to clearly look 3D */
+const TILE_DEPTH = 0.25;
 
-/** Corner radius for rounded box */
-const CORNER_RADIUS = 0.04;
+/** Type-based color scheme for tile sides */
+const TYPE_COLORS: Record<string, { top: string; side: string; bottom: string }> = {
+  text: { top: '#ffffff', side: '#6366f1', bottom: '#e0e0e8' },
+  raster: { top: '#ffffff', side: '#f59e0b', bottom: '#e0e0e8' },
+  vector: { top: '#ffffff', side: '#10b981', bottom: '#e0e0e8' },
+  container: { top: '#f0f2f8', side: '#8b5cf6', bottom: '#d8dae4' },
+};
 
 /**
- * A single tile rendered as a 3D card in the Three.js scene.
+ * A single tile rendered as a solid 3D box in the Three.js scene.
  *
- * Uses RoundedBox for a thick, physical card appearance with
- * visible edges and shadows. HTML content is projected onto
- * the front face via drei's <Html> component.
+ * Each tile is a thick box with:
+ *   - White/light top face with HTML content
+ *   - Colored side walls (color-coded by tile type)
+ *   - Darker bottom face
+ *   - Rounded corners and physical material
+ *
+ * Interactions:
+ *   - Click: select tile
+ *   - Drag: move X/Y (or Shift+drag for Z)
+ *   - Double-click container: drill down into children
+ *   - Double-click detached tile: snap back to grid
  */
 export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const posGroupRef = useRef<THREE.Group>(null);
   const { gl } = useThree();
 
   const tileState = useNavigationStore((s) => s.tileStates[tile.id]);
@@ -45,6 +59,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   const toggleFlip = useNavigationStore((s) => s.toggleFlip);
   const snapToGrid = useNavigationStore((s) => s.snapToGrid);
   const setTileDragging = useNavigationStore((s) => s.setTileDragging);
+  const drillDown = useNavigationStore((s) => s.drillDown);
 
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef<{ x: number; y: number; pos: [number, number, number] } | null>(null);
@@ -52,6 +67,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
 
   const w = width * SCALE;
   const h = height * SCALE;
+  const isContainer = tile.type === 'container';
 
   // Initialize tile in store
   useEffect(() => {
@@ -67,16 +83,12 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   // Target rotation for flip animation
   const targetRotY = isFlipped ? Math.PI : 0;
 
-  // Outer group for position + hover lift
-  const posGroupRef = useRef<THREE.Group>(null);
-
   // Hover lift — selected/hovered tiles float up slightly
-  const targetLift = isSelected ? 0.15 : isHovered ? 0.08 : 0;
+  const targetLift = isSelected ? 0.2 : isHovered ? 0.1 : 0;
   const liftRef = useRef(0);
 
-  // Animate flip rotation and hover lift smoothly
+  // Animate flip rotation and hover lift
   useFrame(() => {
-    // Flip rotation (on the inner group, which spins on its local Y)
     if (groupRef.current) {
       const currentRot = groupRef.current.rotation.y;
       const rotDiff = targetRotY - currentRot;
@@ -84,8 +96,6 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
         groupRef.current.rotation.y += rotDiff * 0.12;
       }
     }
-
-    // Hover lift (on the outer positioning group, world Y = up)
     if (posGroupRef.current) {
       const liftDiff = targetLift - liftRef.current;
       if (Math.abs(liftDiff) > 0.001) {
@@ -100,7 +110,6 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
       selectTile(tile.id);
-
       dragStart.current = {
         x: e.nativeEvent.clientX,
         y: e.nativeEvent.clientY,
@@ -109,48 +118,35 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
       hasDragged.current = false;
       setIsDragging(true);
       setTileDragging(true);
-
       (e.nativeEvent.target as HTMLElement)?.setPointerCapture?.(e.nativeEvent.pointerId);
     },
     [tile.id, currentPos, selectTile, setTileDragging],
   );
 
-  // Pointer move/up — drag tile in X/Y or Z
+  // Pointer move/up — drag tile or click
   useEffect(() => {
     if (!isDragging) return;
 
     const handleMove = (e: PointerEvent) => {
       if (!dragStart.current) return;
-
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
 
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
         hasDragged.current = true;
       }
-
       if (!hasDragged.current) return;
 
       const shiftHeld = useNavigationStore.getState().isShiftHeld;
       const moveFactor = 0.01;
 
       if (shiftHeld) {
-        // Z-axis movement (Shift+drag)
         const newZ = dragStart.current.pos[2] + dy * moveFactor;
-        setTilePosition(tile.id, [
-          dragStart.current.pos[0],
-          dragStart.current.pos[1],
-          newZ,
-        ]);
+        setTilePosition(tile.id, [dragStart.current.pos[0], dragStart.current.pos[1], newZ]);
       } else {
-        // X/Y movement
         const newX = dragStart.current.pos[0] + dx * moveFactor;
         const newY = dragStart.current.pos[1] - dy * moveFactor;
-        setTilePosition(tile.id, [
-          newX,
-          newY,
-          dragStart.current.pos[2],
-        ]);
+        setTilePosition(tile.id, [newX, newY, dragStart.current.pos[2]]);
       }
     };
 
@@ -169,201 +165,239 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
-  }, [isDragging, tile.id, setTilePosition, toggleFlip]);
+  }, [isDragging, tile.id, setTilePosition, toggleFlip, setTileDragging]);
 
-  // Double-click to snap back to grid
+  // Double-click: containers → drill down, detached tiles → snap back
   const handleDoubleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
-      if (isDetached) {
+      if (isContainer) {
+        drillDown(tile.id);
+      } else if (isDetached) {
         snapToGrid(tile.id);
       }
     },
-    [tile.id, isDetached, snapToGrid],
+    [tile.id, isContainer, isDetached, snapToGrid, drillDown],
   );
 
-  // Visual styling
-  const isContainer = tile.type === 'container';
-
-  // Front face color (white-ish card)
-  const frontColor = isSelected
-    ? '#ffffff'
-    : isHovered
-      ? '#fafbfc'
-      : isContainer
-        ? '#f0f2f6'
-        : '#f8f9fb';
-
-  // Side/edge color (darker to show 3D depth)
-  const sideColor = isSelected
-    ? '#4a7cff'
-    : isDetached
-      ? '#8b9aff'
-      : isContainer
-        ? '#c8cdd6'
-        : '#d4d8e0';
-
-  const meshOpacity = isContainer ? 0.4 : 1.0;
+  // Color scheme based on tile type
+  const colors = TYPE_COLORS[tile.type] || TYPE_COLORS.text;
+  const topColor = isSelected ? '#ffffff' : isHovered ? '#fafbfd' : colors.top;
+  const sideColor = isSelected ? '#4a7cff' : isHovered ? colors.side : colors.side;
+  const bottomColor = colors.bottom;
+  const meshOpacity = isContainer ? 0.5 : 1.0;
 
   return (
-    <group
-      ref={posGroupRef}
-      position={currentPos}
-    >
-      {/* Middle group: lay the card flat on the XZ plane */}
+    <group ref={posGroupRef} position={currentPos}>
+      {/* Lay flat on XZ plane */}
       <group rotation={[-Math.PI / 2, 0, 0]}>
-      {/* Inner group: flip animation (rotation.y) */}
-      <group ref={groupRef}>
+        {/* Flip animation */}
+        <group ref={groupRef}>
 
-      {/* 3D card body — RoundedBox for visible thickness */}
-      <RoundedBox
-        ref={meshRef}
-        args={[w, h, TILE_DEPTH]}
-        radius={CORNER_RADIUS}
-        smoothness={4}
-        onPointerDown={handlePointerDown}
-        onDoubleClick={handleDoubleClick}
-        onPointerEnter={(e) => {
-          e.stopPropagation();
-          setHovered(tile.id);
-          gl.domElement.style.cursor = 'grab';
-        }}
-        onPointerLeave={(e) => {
-          e.stopPropagation();
-          setHovered(null);
-          gl.domElement.style.cursor = 'auto';
-        }}
-        castShadow
-        receiveShadow
-      >
-        <meshPhysicalMaterial
-          color={frontColor}
-          transparent={isContainer}
-          opacity={meshOpacity}
-          depthWrite={!isContainer}
-          roughness={0.35}
-          metalness={0.0}
-          clearcoat={0.1}
-          clearcoatRoughness={0.4}
-          side={THREE.DoubleSide}
-        />
-      </RoundedBox>
-
-      {/* Side edge highlight — thin colored border around the tile edges */}
-      <mesh castShadow>
-        <boxGeometry args={[w + 0.02, h + 0.02, TILE_DEPTH + 0.005]} />
-        <meshStandardMaterial
-          color={sideColor}
-          transparent
-          opacity={isContainer ? 0.25 : 0.6}
-          depthWrite={false}
-          side={THREE.BackSide}
-        />
-      </mesh>
-
-      {/* Selection glow ring */}
-      {isSelected && (
-        <mesh>
-          <boxGeometry args={[w + 0.06, h + 0.06, TILE_DEPTH + 0.01]} />
-          <meshBasicMaterial
-            color="#4a7cff"
-            transparent
-            opacity={0.15}
-            side={THREE.BackSide}
-          />
-        </mesh>
-      )}
-
-      {/* Front face HTML content — only visible when NOT flipped */}
-      {!isFlipped && (
-        <Html
-          position={[0, 0, TILE_DEPTH / 2 + 0.002]}
-          transform
-          distanceFactor={1.5}
-          style={{
-            width: `${width}px`,
-            height: `${height}px`,
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-          className="tile-3d-html"
-        >
-          <div
-            className="tile-3d-content"
-            style={{
-              width: `${width}px`,
-              height: `${height}px`,
-              overflow: 'hidden',
-              padding: tile.type === 'text' ? '8px' : tile.type === 'raster' ? '3px' : '0',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-              fontSize: '13px',
-              color: '#1a1a2e',
-              lineHeight: '1.4',
+          {/* === TOP FACE — white card surface === */}
+          <mesh
+            position={[0, 0, TILE_DEPTH / 2]}
+            castShadow
+            onPointerDown={handlePointerDown}
+            onDoubleClick={handleDoubleClick}
+            onPointerEnter={(e) => {
+              e.stopPropagation();
+              setHovered(tile.id);
+              gl.domElement.style.cursor = isContainer ? 'pointer' : 'grab';
+            }}
+            onPointerLeave={(e) => {
+              e.stopPropagation();
+              setHovered(null);
+              gl.domElement.style.cursor = 'auto';
             }}
           >
-            <TileContent tile={tile} />
-          </div>
-        </Html>
-      )}
+            <planeGeometry args={[w, h]} />
+            <meshPhysicalMaterial
+              color={topColor}
+              transparent={isContainer}
+              opacity={meshOpacity}
+              roughness={0.3}
+              metalness={0.0}
+              clearcoat={0.15}
+              clearcoatRoughness={0.3}
+            />
+          </mesh>
 
-      {/* Back face HTML content — only visible when flipped */}
-      {isFlipped && (
-        <Html
-          position={[0, 0, -(TILE_DEPTH / 2 + 0.002)]}
-          transform
-          rotation={[0, Math.PI, 0]}
-          distanceFactor={1.5}
-          style={{
-            width: `${width}px`,
-            height: `${height}px`,
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        >
-          <div
-            style={{
-              width: `${width}px`,
-              height: `${height}px`,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              borderRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              color: 'white',
-              padding: '12px',
-            }}
-          >
-            <span style={{ fontSize: '10px', letterSpacing: '0.15em', opacity: 0.7, fontWeight: 600 }}>
-              {tile.type.toUpperCase()}
-            </span>
-            {tile.label && (
-              <span style={{ fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>
-                {tile.label}
-              </span>
-            )}
-            <span style={{ fontSize: '9px', opacity: 0.5, marginTop: '4px' }}>
-              Click to flip back
-            </span>
-          </div>
-        </Html>
-      )}
+          {/* === BOTTOM FACE — darker underside === */}
+          <mesh position={[0, 0, -TILE_DEPTH / 2]} rotation={[Math.PI, 0, 0]}>
+            <planeGeometry args={[w, h]} />
+            <meshStandardMaterial
+              color={bottomColor}
+              transparent={isContainer}
+              opacity={meshOpacity}
+              roughness={0.8}
+            />
+          </mesh>
 
-      {/* Detached indicator — floating glow */}
-      {isDetached && (
-        <pointLight
-          position={[0, -h / 2 - 0.1, 0]}
-          intensity={0.5}
-          distance={3}
-          color="#4a7cff"
-        />
-      )}
+          {/* === SIDE WALLS — colored edges (4 sides) === */}
+          {/* Left side */}
+          <mesh position={[-w / 2, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow>
+            <planeGeometry args={[TILE_DEPTH, h]} />
+            <meshStandardMaterial
+              color={sideColor}
+              transparent={isContainer}
+              opacity={isContainer ? 0.4 : 0.85}
+              roughness={0.5}
+            />
+          </mesh>
+          {/* Right side */}
+          <mesh position={[w / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
+            <planeGeometry args={[TILE_DEPTH, h]} />
+            <meshStandardMaterial
+              color={sideColor}
+              transparent={isContainer}
+              opacity={isContainer ? 0.4 : 0.85}
+              roughness={0.5}
+            />
+          </mesh>
+          {/* Front side */}
+          <mesh position={[0, -h / 2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <planeGeometry args={[w, TILE_DEPTH]} />
+            <meshStandardMaterial
+              color={sideColor}
+              transparent={isContainer}
+              opacity={isContainer ? 0.4 : 0.85}
+              roughness={0.5}
+            />
+          </mesh>
+          {/* Back side */}
+          <mesh position={[0, h / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+            <planeGeometry args={[w, TILE_DEPTH]} />
+            <meshStandardMaterial
+              color={sideColor}
+              transparent={isContainer}
+              opacity={isContainer ? 0.4 : 0.85}
+              roughness={0.5}
+            />
+          </mesh>
 
-      </group>{/* end inner flip group */}
-      </group>{/* end middle lay-flat group */}
+          {/* Selection glow ring */}
+          {isSelected && (
+            <mesh>
+              <boxGeometry args={[w + 0.06, h + 0.06, TILE_DEPTH + 0.02]} />
+              <meshBasicMaterial
+                color="#4a7cff"
+                transparent
+                opacity={0.12}
+                side={THREE.BackSide}
+              />
+            </mesh>
+          )}
+
+          {/* Container icon indicator — show it has children */}
+          {isContainer && !isFlipped && (
+            <mesh position={[w / 2 - 0.12, h / 2 - 0.12, TILE_DEPTH / 2 + 0.003]}>
+              <circleGeometry args={[0.06, 16]} />
+              <meshBasicMaterial color={colors.side} transparent opacity={0.6} />
+            </mesh>
+          )}
+
+          {/* Front face HTML content — only visible when NOT flipped */}
+          {!isFlipped && (
+            <Html
+              position={[0, 0, TILE_DEPTH / 2 + 0.003]}
+              transform
+              distanceFactor={1.5}
+              style={{
+                width: `${width}px`,
+                height: `${height}px`,
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+              className="tile-3d-html"
+            >
+              <div
+                className="tile-3d-content"
+                style={{
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  overflow: 'hidden',
+                  padding: tile.type === 'text' ? '8px' : tile.type === 'raster' ? '3px' : '0',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  fontSize: '13px',
+                  color: '#1a1a2e',
+                  lineHeight: '1.4',
+                }}
+              >
+                <TileContent tile={tile} />
+              </div>
+            </Html>
+          )}
+
+          {/* Back face HTML content — only visible when flipped */}
+          {isFlipped && (
+            <Html
+              position={[0, 0, -(TILE_DEPTH / 2 + 0.003)]}
+              transform
+              rotation={[0, Math.PI, 0]}
+              distanceFactor={1.5}
+              style={{
+                width: `${width}px`,
+                height: `${height}px`,
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            >
+              <div
+                style={{
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  background: `linear-gradient(135deg, ${colors.side} 0%, ${shiftColor(colors.side, -30)} 100%)`,
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  color: 'white',
+                  padding: '12px',
+                }}
+              >
+                <span style={{ fontSize: '10px', letterSpacing: '0.15em', opacity: 0.7, fontWeight: 600 }}>
+                  {tile.type.toUpperCase()}
+                </span>
+                {tile.label && (
+                  <span style={{ fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>
+                    {tile.label}
+                  </span>
+                )}
+                <span style={{ fontSize: '9px', opacity: 0.5, marginTop: '4px' }}>
+                  Click to flip back
+                </span>
+              </div>
+            </Html>
+          )}
+
+          {/* Detached indicator — floating glow */}
+          {isDetached && (
+            <pointLight
+              position={[0, -h / 2 - 0.1, 0]}
+              intensity={0.5}
+              distance={3}
+              color="#4a7cff"
+            />
+          )}
+
+        </group>{/* end flip group */}
+      </group>{/* end lay-flat group */}
     </group>
   );
+}
+
+/**
+ * Shift a hex color lighter or darker by an amount.
+ */
+function shiftColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 /**
@@ -413,16 +447,19 @@ function TileContent({ tile }: { tile: TileType }) {
           width: '100%',
           height: '100%',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '13px',
           fontWeight: 600,
           color: '#4a4a6a',
           textAlign: 'center',
-          background: 'rgba(0,0,0,0.03)',
-          borderRadius: '6px',
+          gap: '4px',
         }}>
-          {tile.label}
+          <span>{tile.label}</span>
+          <span style={{ fontSize: '9px', opacity: 0.4, fontWeight: 400 }}>
+            Double-click to open
+          </span>
         </div>
       );
     default:

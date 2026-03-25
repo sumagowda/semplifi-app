@@ -7,8 +7,9 @@ import { create } from 'zustand';
  * Tiles start in the Fibonacci grid layout but can be "detached"
  * and dragged freely in 3D space, then snapped back to the grid.
  *
- * The camera is managed by OrbitControls (Three.js),
- * so we only track tile-level state here.
+ * Supports drill-down navigation: double-clicking a container
+ * zooms the camera into that container's children. A navigation
+ * stack tracks the drill-down path for back-navigation.
  */
 
 export interface TileState3D {
@@ -40,6 +41,12 @@ interface NavigationState {
   /** Whether a tile is currently being dragged (disables orbit controls) */
   isTileDragging: boolean;
 
+  /** The container tile we've drilled into (null = root level) */
+  focusedContainerId: string | null;
+
+  /** Stack of container IDs for back-navigation (breadcrumb trail) */
+  navigationStack: string[];
+
   /** Initialize a tile's 3D state from its grid position */
   initTile: (tileId: string, gridPos: [number, number, number]) => void;
 
@@ -67,7 +74,13 @@ interface NavigationState {
   /** Set tile dragging state */
   setTileDragging: (dragging: boolean) => void;
 
-  /** Reset all tiles to grid positions */
+  /** Drill down into a container tile */
+  drillDown: (containerId: string) => void;
+
+  /** Go back one level (pop navigation stack) */
+  drillUp: () => void;
+
+  /** Reset all tiles to grid positions and return to root */
   resetAll: () => void;
 }
 
@@ -77,6 +90,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
   hoveredTileId: null,
   isShiftHeld: false,
   isTileDragging: false,
+  focusedContainerId: null,
+  navigationStack: [],
 
   initTile: (tileId, gridPos) => {
     set((state) => {
@@ -179,19 +194,38 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     set({ isTileDragging: dragging });
   },
 
-  resetAll: () => {
+  drillDown: (containerId) => {
+    set((state) => ({
+      focusedContainerId: containerId,
+      navigationStack: [...state.navigationStack, containerId],
+      selectedTileId: null,
+      // Clear tile states so children re-initialize at new positions
+      tileStates: {},
+    }));
+  },
+
+  drillUp: () => {
     set((state) => {
-      const reset: Record<string, TileState3D> = {};
-      for (const [id, tile] of Object.entries(state.tileStates)) {
-        reset[id] = {
-          ...tile,
-          position: [...tile.gridPosition] as [number, number, number],
-          rotation: [0, 0, 0],
-          isDetached: false,
-          isFlipped: false,
-        };
-      }
-      return { tileStates: reset, selectedTileId: null };
+      const stack = [...state.navigationStack];
+      stack.pop(); // Remove current level
+      const parent = stack.length > 0 ? stack[stack.length - 1] : null;
+      return {
+        focusedContainerId: parent,
+        navigationStack: stack,
+        selectedTileId: null,
+        // Clear tile states so tiles re-initialize at correct positions
+        tileStates: {},
+      };
+    });
+  },
+
+  resetAll: () => {
+    set({
+      // Clear all tile states so they re-initialize at root positions
+      tileStates: {},
+      selectedTileId: null,
+      focusedContainerId: null,
+      navigationStack: [],
     });
   },
 }));

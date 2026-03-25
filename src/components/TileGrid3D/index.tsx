@@ -2,6 +2,8 @@
 
 import type { Tile as TileType, ContainerTile } from '@/types/tile';
 import Tile3D from '@/components/Tile3D';
+import { tileMap } from '@/data/herbs';
+import { useNavigationStore } from '@/stores/useNavigationStore';
 
 interface TileGrid3DProps {
   tiles: TileType[];
@@ -44,9 +46,8 @@ const ROW_OFFSETS = [0, 199, 487];
  * - Z axis = rows (near/far, into the screen)
  * - Y axis = nesting depth (stacked upward)
  *
- * This layout makes tiles look like physical cards laying on
- * a table, with nested content hovering above parent containers.
- * The angled camera reveals all three axes clearly.
+ * When a container is focused (drilled into), only that container's
+ * children are rendered, laid out as if they were the root level.
  */
 export default function TileGrid3D({
   tiles,
@@ -54,6 +55,45 @@ export default function TileGrid3D({
   offsetX,
   offsetY,
 }: TileGrid3DProps) {
+  const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
+
+  // If we're at the top-level call (depth === 0) and a container is focused,
+  // render only that container's children at the root level
+  if (depth === 0 && focusedContainerId) {
+    const focused = tileMap.get(focusedContainerId);
+    if (focused && focused.type === 'container') {
+      return (
+        <TileGrid3DInner
+          tiles={(focused as ContainerTile).children}
+          depth={0}
+          offsetX={0}
+          offsetY={0}
+        />
+      );
+    }
+  }
+
+  return (
+    <TileGrid3DInner
+      tiles={tiles}
+      depth={depth}
+      offsetX={offsetX}
+      offsetY={offsetY}
+    />
+  );
+}
+
+/**
+ * Inner grid renderer — does the actual Fibonacci layout.
+ */
+function TileGrid3DInner({
+  tiles,
+  depth,
+  offsetX,
+  offsetY,
+}: TileGrid3DProps) {
+  const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
+
   // Each nesting level floats higher
   const layerY = depth * Y_LAYER_SPACING;
 
@@ -87,9 +127,11 @@ export default function TileGrid3D({
               height={tile.position.height}
             />
 
-            {/* Render container children at the next Y-level */}
-            {tile.type === 'container' && (
-              <TileGrid3D
+            {/* Render container children at the next Y-level
+                (only if not focused — when focused, children are
+                 rendered as the root level instead) */}
+            {tile.type === 'container' && tile.id !== focusedContainerId && (
+              <TileGrid3DInner
                 tiles={(tile as ContainerTile).children}
                 depth={depth + 1}
                 offsetX={pixelX}

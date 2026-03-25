@@ -113,18 +113,20 @@ body {
 }
 
 .canvas-control-btn {
-  width: 40px;
-  height: 40px;
+  width: auto;
+  min-width: 40px;
+  height: 36px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  border: 1px solid var(--tile-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #6b7280;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   user-select: none;
@@ -132,18 +134,11 @@ body {
 
 .canvas-control-btn:hover {
   background: rgba(255, 255, 255, 1);
-  color: var(--text-primary);
+  color: #374151;
 }
 
 .canvas-control-btn:active {
   background: #eee;
-}
-
-.canvas-control-btn:last-child {
-  width: auto;
-  padding: 0 12px;
-  font-size: 12px;
-  margin-top: 4px;
 }
 
 /**
@@ -214,6 +209,66 @@ body {
 
 .scene3d-btn:hover {
   background: rgba(74, 124, 255, 0.15);
+}
+
+/**
+ * Scene3D HUD — breadcrumb navigation (top-center).
+ */
+.scene3d-breadcrumb {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 300;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.scene3d-breadcrumb-item {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4a7cff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.scene3d-breadcrumb-item:hover {
+  background: rgba(74, 124, 255, 0.1);
+}
+
+.scene3d-breadcrumb-root {
+  font-weight: 600;
+}
+
+.scene3d-breadcrumb-sep {
+  color: #d1d5db;
+  margin: 0 2px;
+  font-weight: 300;
+}
+
+.scene3d-breadcrumb-current {
+  font-weight: 600;
+  color: #374151;
+  padding: 2px 6px;
+}
+
+.scene3d-breadcrumb-entry {
+  display: flex;
+  align-items: center;
 }
 
 /**

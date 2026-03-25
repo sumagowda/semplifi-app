@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, Suspense, useRef } from 'react';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
   Grid,
@@ -10,7 +10,7 @@ import {
 } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
-import { rootTiles } from '@/data/herbs';
+import { rootTiles, tileMap } from '@/data/herbs';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 import TileGrid3D from '@/components/TileGrid3D';
 
@@ -20,19 +20,29 @@ import TileGrid3D from '@/components/TileGrid3D';
  * Renders tiles as 3D card objects on a visible ground plane
  * with an angled camera to reveal depth and 3D structure.
  *
- * The camera starts at a 3/4 angle looking down at the workspace,
- * giving an isometric-like view that clearly shows Z-depth.
+ * Supports drill-down: double-click a container to zoom into
+ * its children. The camera animates smoothly to the new focus.
  */
 export default function Scene3D() {
   const setShiftHeld = useNavigationStore((s) => s.setShiftHeld);
   const resetAll = useNavigationStore((s) => s.resetAll);
+  const drillUp = useNavigationStore((s) => s.drillUp);
   const selectTile = useNavigationStore((s) => s.selectTile);
 
-  // Track Shift key for Z-axis drag mode
+  // Track Shift key for Z-axis drag mode, Escape for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(true);
-      if (e.key === 'Escape') resetAll();
+      if (e.key === 'Escape') {
+        const state = useNavigationStore.getState();
+        if (state.navigationStack.length > 0) {
+          // Go back one level
+          drillUp();
+        } else {
+          // At root — reset everything
+          resetAll();
+        }
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(false);
@@ -44,7 +54,7 @@ export default function Scene3D() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [setShiftHeld, resetAll]);
+  }, [setShiftHeld, resetAll, drillUp]);
 
   // Click on empty space to deselect
   const handleMissed = useCallback(() => {
@@ -56,7 +66,6 @@ export default function Scene3D() {
       <Canvas
         camera={{
           // Angled 3/4 view — looking down and to the side
-          // This reveals the Z-depth between tile layers
           position: [7, 6, 10],
           fov: 45,
           near: 0.1,
@@ -100,7 +109,7 @@ export default function Scene3D() {
           args={['#b1e1ff', '#b97a20', 0.25]}
         />
 
-        {/* Camera controls — disabled while a tile is being dragged */}
+        {/* Camera controls — handles orbit, pan, zoom, and drill-down animation */}
         <CameraControls />
 
         {/* Ground plane — visible floor that receives shadows */}
@@ -161,19 +170,26 @@ export default function Scene3D() {
   );
 }
 
+/** Default camera position (root level) */
+const DEFAULT_CAM_POS = new THREE.Vector3(7, 6, 10);
+const DEFAULT_CAM_TARGET = new THREE.Vector3(0, 0, 0);
+
 /**
- * Camera orbit/pan/zoom controls.
+ * Camera orbit/pan/zoom controls with drill-down animation.
  *
- * Left-drag on empty space orbits the camera.
- * Right-drag or two-finger drag pans.
- * Scroll/pinch zooms.
- *
- * Controls are automatically disabled while a tile is being
- * dragged to prevent camera movement during tile manipulation.
+ * When focusedContainerId changes, the camera smoothly
+ * animates to a new position looking at the center of
+ * the focused container's content.
  */
 function CameraControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const isTileDragging = useNavigationStore((s) => s.isTileDragging);
+  const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
+
+  // Animation targets
+  const targetPosition = useRef(DEFAULT_CAM_POS.clone());
+  const targetLookAt = useRef(DEFAULT_CAM_TARGET.clone());
+  const isAnimating = useRef(false);
 
   // Disable orbit controls when a tile is being dragged
   useEffect(() => {
@@ -181,6 +197,52 @@ function CameraControls() {
       controlsRef.current.enabled = !isTileDragging;
     }
   }, [isTileDragging]);
+
+  // When focus changes, compute new camera target and start animation
+  useEffect(() => {
+    if (!focusedContainerId) {
+      // Return to default
+      targetPosition.current.copy(DEFAULT_CAM_POS);
+      targetLookAt.current.copy(DEFAULT_CAM_TARGET);
+      isAnimating.current = true;
+      return;
+    }
+
+    // Look at the center of the focused content — since children
+    // get re-laid out at origin (0,0,0), camera just needs to
+    // zoom in closer to the grid center
+    targetLookAt.current.set(0, 0, 0);
+    targetPosition.current.set(5, 5, 7);
+    isAnimating.current = true;
+  }, [focusedContainerId]);
+
+  // Smooth camera animation each frame
+  useFrame(() => {
+    if (!isAnimating.current || !controlsRef.current) return;
+
+    const camera = controlsRef.current.object;
+    const controls = controlsRef.current;
+
+    const lerpFactor = 0.06;
+
+    // Lerp camera position
+    camera.position.lerp(targetPosition.current, lerpFactor);
+
+    // Lerp orbit target (lookAt)
+    controls.target.lerp(targetLookAt.current, lerpFactor);
+    controls.update();
+
+    // Check if close enough to stop
+    const posDist = camera.position.distanceTo(targetPosition.current);
+    const targetDist = controls.target.distanceTo(targetLookAt.current);
+
+    if (posDist < 0.01 && targetDist < 0.01) {
+      camera.position.copy(targetPosition.current);
+      controls.target.copy(targetLookAt.current);
+      controls.update();
+      isAnimating.current = false;
+    }
+  });
 
   return (
     <OrbitControls
@@ -190,22 +252,18 @@ function CameraControls() {
       minDistance={3}
       maxDistance={50}
       target={[0, 0, 0]}
-      // Left-drag = orbit, right-drag = pan, middle = pan
       mouseButtons={{
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.PAN,
         RIGHT: THREE.MOUSE.PAN,
       }}
-      // Touch: one finger = orbit, two fingers = pan + dolly (zoom)
       touches={{
         ONE: THREE.TOUCH.ROTATE,
         TWO: THREE.TOUCH.DOLLY_PAN,
       }}
       enableRotate={true}
-      // Limit vertical angle (don't go fully underneath)
       maxPolarAngle={Math.PI * 0.48}
       minPolarAngle={Math.PI * 0.05}
-      // Smoother pan
       panSpeed={0.8}
       rotateSpeed={0.6}
     />
@@ -213,19 +271,69 @@ function CameraControls() {
 }
 
 /**
- * Heads-up display with controls and status info.
+ * Heads-up display with controls, status info, and breadcrumb navigation.
  */
 function HUD() {
   const selectedTileId = useNavigationStore((s) => s.selectedTileId);
   const isShiftHeld = useNavigationStore((s) => s.isShiftHeld);
   const resetAll = useNavigationStore((s) => s.resetAll);
+  const drillUp = useNavigationStore((s) => s.drillUp);
   const snapToGrid = useNavigationStore((s) => s.snapToGrid);
+  const navigationStack = useNavigationStore((s) => s.navigationStack);
+  const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
   const tileState = useNavigationStore((s) =>
     selectedTileId ? s.tileStates[selectedTileId] : null,
   );
 
+  // Build breadcrumb labels
+  const breadcrumbs = navigationStack.map((id) => {
+    const tile = tileMap.get(id);
+    return { id, label: tile?.label || id };
+  });
+
   return (
     <>
+      {/* Breadcrumb navigation — shows when drilled down */}
+      {breadcrumbs.length > 0 && (
+        <div className="scene3d-breadcrumb">
+          <button
+            className="scene3d-breadcrumb-item scene3d-breadcrumb-root"
+            onClick={resetAll}
+          >
+            Root
+          </button>
+          {breadcrumbs.map((crumb, i) => (
+            <span key={crumb.id} className="scene3d-breadcrumb-entry">
+              <span className="scene3d-breadcrumb-sep">/</span>
+              {i < breadcrumbs.length - 1 ? (
+                <button
+                  className="scene3d-breadcrumb-item"
+                  onClick={() => {
+                    // Navigate to this specific level
+                    const state = useNavigationStore.getState();
+                    const idx = state.navigationStack.indexOf(crumb.id);
+                    if (idx >= 0) {
+                      // Pop down to this level
+                      useNavigationStore.setState({
+                        navigationStack: state.navigationStack.slice(0, idx + 1),
+                        focusedContainerId: crumb.id,
+                        selectedTileId: null,
+                      });
+                    }
+                  }}
+                >
+                  {crumb.label}
+                </button>
+              ) : (
+                <span className="scene3d-breadcrumb-current">
+                  {crumb.label}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Controls legend */}
       <div className="scene3d-legend">
         <div><strong>Controls</strong></div>
@@ -235,8 +343,8 @@ function HUD() {
         <div>Click tile: Select & flip</div>
         <div>Drag tile: Move X/Y</div>
         <div>Shift+drag: Move Z</div>
-        <div>Double-click: Snap back</div>
-        <div>Esc: Reset all</div>
+        <div>Dbl-click container: Drill in</div>
+        <div>Esc: Back / Reset</div>
       </div>
 
       {/* Selected tile info */}
@@ -265,8 +373,17 @@ function HUD() {
         </div>
       )}
 
-      {/* Reset button */}
+      {/* Reset / Back button */}
       <div className="canvas-controls">
+        {focusedContainerId && (
+          <button
+            className="canvas-control-btn"
+            onClick={drillUp}
+            title="Go back (Esc)"
+          >
+            Back
+          </button>
+        )}
         <button
           className="canvas-control-btn"
           onClick={resetAll}
