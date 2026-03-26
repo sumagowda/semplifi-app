@@ -203,8 +203,9 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   // At distanceFactor=1.5, `width` CSS px ≈ card width in world space.
   // We use a higher distanceFactor for readable text, and scale CSS dims
   // inversely so the HTML still fits within the card boundaries.
-  const distFactor = 4;
-  const cssScale = 1.5 / distFactor; // ~0.375
+  const distFactor = 3;
+  // Empirically tuned: 0.5 only fills ~60% of card; 0.8 fills ~90%.
+  const cssScale = 0.8;
   const cssW = Math.round(width * cssScale);
   const cssH = Math.round(height * cssScale);
 
@@ -300,15 +301,13 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   width: `${cssW}px`,
                   height: `${cssH}px`,
                   overflow: 'hidden',
-                  padding: tile.type === 'text'
-                    ? '4px'
-                    : tile.type === 'raster'
-                      ? '2px'
-                      : '0',
+                  padding: tile.type === 'raster' ? '2px' : '4px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   color: '#1a1a2e',
-                  lineHeight: '1.35',
+                  lineHeight: '1.3',
+                  overflowWrap: 'break-word',
+                  hyphens: 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
                 }}
@@ -343,21 +342,21 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '3px',
+                  gap: '4px',
                   color: 'white',
                   padding: '6px',
                   WebkitFontSmoothing: 'antialiased',
                 }}
               >
-                <span style={{ fontSize: '8px', letterSpacing: '0.15em', opacity: 0.7, fontWeight: 600 }}>
+                <span style={{ fontSize: '10px', letterSpacing: '0.1em', opacity: 0.7, fontWeight: 600 }}>
                   {tile.type.toUpperCase()}
                 </span>
                 {tile.label && (
-                  <span style={{ fontSize: '10px', fontWeight: 600, textAlign: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, textAlign: 'center', overflowWrap: 'break-word' }}>
                     {tile.label}
                   </span>
                 )}
-                <span style={{ fontSize: '7px', opacity: 0.5, marginTop: '2px' }}>
+                <span style={{ fontSize: '9px', opacity: 0.5, marginTop: '2px' }}>
                   Double-click to flip back
                 </span>
               </div>
@@ -400,12 +399,12 @@ function TileContent({ tile }: { tile: TileType }) {
       return (
         <div>
           {'content' in tile && (tile.content as { heading?: string }).heading && (
-            <h3 style={{ fontSize: '12px', fontWeight: 700, margin: '0 0 2px 0' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 3px 0', lineHeight: 1.2 }}>
               {(tile.content as { heading?: string }).heading}
             </h3>
           )}
           {'content' in tile && (tile.content as { body?: string }).body && (
-            <p style={{ margin: 0, fontSize: '9px', opacity: 0.75, lineHeight: 1.4 }}>
+            <p style={{ margin: 0, fontSize: '11px', opacity: 0.75, lineHeight: 1.3 }}>
               {(tile.content as { body?: string }).body}
             </p>
           )}
@@ -424,7 +423,7 @@ function TileContent({ tile }: { tile: TileType }) {
               color: (tile.content as { fillColor?: string }).fillColor || '#333',
             }}
             dangerouslySetInnerHTML={{
-              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="24" height="24" fill="currentColor">${(tile.content as { svgContent: string }).svgContent}</svg>`,
+              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="32" height="32" fill="currentColor">${(tile.content as { svgContent: string }).svgContent}</svg>`,
             }}
           />
         );
@@ -456,14 +455,29 @@ function TileContent({ tile }: { tile: TileType }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '11px',
-          fontWeight: 600,
-          color: '#4a4a6a',
           textAlign: 'center',
-          gap: '2px',
+          gap: '6px',
+          padding: '8px',
+          overflowWrap: 'break-word',
         }}>
-          <span>{tile.label}</span>
-          <span style={{ fontSize: '7px', opacity: 0.4, fontWeight: 400 }}>
+          {/* Folder icon hint */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span style={{
+            fontSize: '27px',
+            fontWeight: 700,
+            color: '#3a3a5c',
+            letterSpacing: '-0.02em',
+          }}>
+            {tile.label}
+          </span>
+          <span style={{
+            fontSize: '10px',
+            opacity: 0.35,
+            fontWeight: 400,
+            color: '#6b7280',
+          }}>
             Double-click to open
           </span>
         </div>
