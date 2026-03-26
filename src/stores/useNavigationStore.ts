@@ -74,8 +74,8 @@ interface NavigationState {
   /** Set tile dragging state */
   setTileDragging: (dragging: boolean) => void;
 
-  /** Drill down into a container tile */
-  drillDown: (containerId: string) => void;
+  /** Drill down into a container tile, optionally with full ancestor chain */
+  drillDown: (containerId: string, ancestorContainerIds?: string[]) => void;
 
   /** Go back one level (pop navigation stack) */
   drillUp: () => void;
@@ -194,14 +194,28 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     set({ isTileDragging: dragging });
   },
 
-  drillDown: (containerId) => {
-    set((state) => ({
-      focusedContainerId: containerId,
-      navigationStack: [...state.navigationStack, containerId],
-      selectedTileId: null,
-      // Clear tile states so children re-initialize at new positions
-      tileStates: {},
-    }));
+  drillDown: (containerId, ancestorContainerIds) => {
+    set((state) => {
+      // If ancestor chain is provided, use it to build the full navigation stack.
+      // This handles the case where a deeply nested container is visible from the
+      // root level and the user double-clicks it directly, skipping intermediate levels.
+      let newStack: string[];
+      if (ancestorContainerIds && ancestorContainerIds.length > 0) {
+        // ancestorContainerIds should be the full chain of container IDs
+        // from the current level down to (and including) the target container.
+        newStack = [...ancestorContainerIds];
+      } else {
+        newStack = [...state.navigationStack, containerId];
+      }
+
+      return {
+        focusedContainerId: containerId,
+        navigationStack: newStack,
+        selectedTileId: null,
+        // Clear tile states so children re-initialize at new positions
+        tileStates: {},
+      };
+    });
   },
 
   drillUp: () => {

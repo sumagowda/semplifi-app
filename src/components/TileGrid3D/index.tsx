@@ -5,6 +5,8 @@ import Tile3D from '@/components/Tile3D';
 import { tileMap } from '@/data/herbs';
 import { useNavigationStore } from '@/stores/useNavigationStore';
 
+// ContainerTile is used in the drill-down logic of TileGrid3D
+
 interface TileGrid3DProps {
   tiles: TileType[];
   depth: number;
@@ -92,8 +94,6 @@ function TileGrid3DInner({
   offsetX,
   offsetY,
 }: TileGrid3DProps) {
-  const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
-
   // Each nesting level floats higher
   const layerY = depth * Y_LAYER_SPACING;
 
@@ -119,26 +119,13 @@ function TileGrid3DInner({
         const pos: [number, number, number] = [worldX, worldY, worldZ];
 
         return (
-          <group key={tile.id}>
-            <Tile3D
-              tile={tile}
-              position={pos}
-              width={tile.position.width}
-              height={tile.position.height}
-            />
-
-            {/* Render container children at the next Y-level
-                (only if not focused — when focused, children are
-                 rendered as the root level instead) */}
-            {tile.type === 'container' && tile.id !== focusedContainerId && (
-              <TileGrid3DInner
-                tiles={(tile as ContainerTile).children}
-                depth={depth + 1}
-                offsetX={pixelX}
-                offsetY={pixelZ}
-              />
-            )}
-          </group>
+          <Tile3D
+            key={tile.id}
+            tile={tile}
+            position={pos}
+            width={tile.position.width}
+            height={tile.position.height}
+          />
         );
       })}
     </group>

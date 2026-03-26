@@ -6,6 +6,7 @@ import { Html, RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Tile as TileType } from '@/types/tile';
 import { useNavigationStore } from '@/stores/useNavigationStore';
+import { getAncestryChain, tileMap } from '@/data/herbs';
 
 interface Tile3DProps {
   tile: TileType;
@@ -43,7 +44,7 @@ const TYPE_COLORS: Record<string, string> = {
  *   - Click: select tile
  *   - Drag: move X/Y (or Shift+drag for Z)
  *   - Double-click container: drill down into children
- *   - Double-click detached tile: snap back to grid
+ *   - Double-click tile: flip card
  */
 export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   const groupRef = useRef<THREE.Group>(null);
@@ -109,7 +110,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
     }
   });
 
-  // Pointer down — start potential drag
+  // Pointer down — start potential drag (select only, no flip)
   const handlePointerDown = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
@@ -127,7 +128,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
     [tile.id, currentPos, selectTile, setTileDragging],
   );
 
-  // Pointer move/up — drag tile or click
+  // Pointer move/up — drag tile
   useEffect(() => {
     if (!isDragging) return;
 
@@ -142,7 +143,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
       if (!hasDragged.current) return;
 
       const shiftHeld = useNavigationStore.getState().isShiftHeld;
-      const moveFactor = 0.01;
+      const moveFactor = 0.02;
 
       if (shiftHeld) {
         const newZ = dragStart.current.pos[2] + dy * moveFactor;
@@ -157,9 +158,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
     const handleUp = () => {
       setIsDragging(false);
       setTileDragging(false);
-      if (!hasDragged.current) {
-        toggleFlip(tile.id);
-      }
+      // No flip on single click — flip is handled by double-click
       dragStart.current = null;
     };
 
@@ -169,27 +168,45 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
-  }, [isDragging, tile.id, setTilePosition, toggleFlip, setTileDragging]);
+  }, [isDragging, tile.id, setTilePosition, setTileDragging]);
 
-  // Double-click: containers → drill down, detached tiles → snap back
+  // Double-click: containers → drill down, otherwise → flip card
   const handleDoubleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
       if (isContainer) {
-        drillDown(tile.id);
+        // Build the full ancestry chain of container IDs so the breadcrumb
+        // shows all intermediate levels (e.g., Root > Rosemary > Rosemary Roast Lamb).
+        const ancestry = getAncestryChain(tile.id);
+        // Filter to only container ancestors (skip root and non-container tiles)
+        const containerAncestors = ancestry.filter((id) => {
+          if (id === 'root') return false; // root is implicit, not in the stack
+          const t = tileMap.get(id);
+          return t?.type === 'container';
+        });
+        drillDown(tile.id, containerAncestors);
       } else if (isDetached) {
         snapToGrid(tile.id);
+      } else {
+        // Flip non-container tiles on double-click
+        toggleFlip(tile.id);
       }
     },
-    [tile.id, isContainer, isDetached, snapToGrid, drillDown],
+    [tile.id, isContainer, isDetached, snapToGrid, drillDown, toggleFlip],
   );
 
   // Card surface color
   const cardColor = isContainer ? '#f8f9fc' : '#ffffff';
   const cardOpacity = isContainer ? 0.85 : 1.0;
 
-  // HTML content scale — render at 2x for retina-sharp text
-  const htmlScale = 2;
+  // HTML sizing: distanceFactor controls how large CSS pixels appear in 3D.
+  // At distanceFactor=1.5, `width` CSS px ≈ card width in world space.
+  // We use a higher distanceFactor for readable text, and scale CSS dims
+  // inversely so the HTML still fits within the card boundaries.
+  const distFactor = 4;
+  const cssScale = 1.5 / distFactor; // ~0.375
+  const cssW = Math.round(width * cssScale);
+  const cssH = Math.round(height * cssScale);
 
   return (
     <group ref={posGroupRef} position={currentPos}>
@@ -267,37 +284,36 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
             <Html
               position={[0, 0, TILE_DEPTH / 2 + 0.002]}
               transform
-              distanceFactor={0.72}
+              distanceFactor={distFactor}
               style={{
-                width: `${width * htmlScale}px`,
-                height: `${height * htmlScale}px`,
-                transform: `scale(${1 / htmlScale})`,
-                transformOrigin: 'center center',
+                width: `${cssW}px`,
+                height: `${cssH}px`,
                 pointerEvents: 'none',
                 userSelect: 'none',
+                overflow: 'hidden',
               }}
               className="tile-3d-html"
             >
               <div
                 className="tile-3d-content"
                 style={{
-                  width: `${width * htmlScale}px`,
-                  height: `${height * htmlScale}px`,
+                  width: `${cssW}px`,
+                  height: `${cssH}px`,
                   overflow: 'hidden',
                   padding: tile.type === 'text'
-                    ? `${16}px`
+                    ? '4px'
                     : tile.type === 'raster'
-                      ? `${6}px`
+                      ? '2px'
                       : '0',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
-                  fontSize: `${26}px`,
+                  fontSize: '11px',
                   color: '#1a1a2e',
-                  lineHeight: '1.4',
+                  lineHeight: '1.35',
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
                 }}
               >
-                <TileContent tile={tile} scale={htmlScale} />
+                <TileContent tile={tile} />
               </div>
             </Html>
           )}
@@ -308,42 +324,41 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
               position={[0, 0, -(TILE_DEPTH / 2 + 0.002)]}
               transform
               rotation={[0, Math.PI, 0]}
-              distanceFactor={0.72}
+              distanceFactor={distFactor}
               style={{
-                width: `${width * htmlScale}px`,
-                height: `${height * htmlScale}px`,
-                transform: `scale(${1 / htmlScale})`,
-                transformOrigin: 'center center',
+                width: `${cssW}px`,
+                height: `${cssH}px`,
                 pointerEvents: 'none',
                 userSelect: 'none',
+                overflow: 'hidden',
               }}
             >
               <div
                 style={{
-                  width: `${width * htmlScale}px`,
-                  height: `${height * htmlScale}px`,
+                  width: `${cssW}px`,
+                  height: `${cssH}px`,
                   background: `linear-gradient(135deg, ${accentColor} 0%, ${shiftColor(accentColor, -30)} 100%)`,
-                  borderRadius: `${16}px`,
+                  borderRadius: '4px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: `${12}px`,
+                  gap: '3px',
                   color: 'white',
-                  padding: `${24}px`,
+                  padding: '6px',
                   WebkitFontSmoothing: 'antialiased',
                 }}
               >
-                <span style={{ fontSize: `${20}px`, letterSpacing: '0.15em', opacity: 0.7, fontWeight: 600 }}>
+                <span style={{ fontSize: '8px', letterSpacing: '0.15em', opacity: 0.7, fontWeight: 600 }}>
                   {tile.type.toUpperCase()}
                 </span>
                 {tile.label && (
-                  <span style={{ fontSize: `${26}px`, fontWeight: 600, textAlign: 'center' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, textAlign: 'center' }}>
                     {tile.label}
                   </span>
                 )}
-                <span style={{ fontSize: `${18}px`, opacity: 0.5, marginTop: `${8}px` }}>
-                  Click to flip back
+                <span style={{ fontSize: '7px', opacity: 0.5, marginTop: '2px' }}>
+                  Double-click to flip back
                 </span>
               </div>
             </Html>
@@ -378,20 +393,19 @@ function shiftColor(hex: string, amount: number): string {
 
 /**
  * Renders the content of a tile based on its type.
- * Content is rendered at 2x scale for crisp retina text.
  */
-function TileContent({ tile, scale }: { tile: TileType; scale: number }) {
+function TileContent({ tile }: { tile: TileType }) {
   switch (tile.type) {
     case 'text':
       return (
         <div>
           {'content' in tile && (tile.content as { heading?: string }).heading && (
-            <h3 style={{ fontSize: `${28}px`, fontWeight: 700, margin: `0 0 ${8}px 0` }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 700, margin: '0 0 2px 0' }}>
               {(tile.content as { heading?: string }).heading}
             </h3>
           )}
           {'content' in tile && (tile.content as { body?: string }).body && (
-            <p style={{ margin: 0, fontSize: `${24}px`, opacity: 0.75, lineHeight: 1.45 }}>
+            <p style={{ margin: 0, fontSize: '9px', opacity: 0.75, lineHeight: 1.4 }}>
               {(tile.content as { body?: string }).body}
             </p>
           )}
@@ -410,7 +424,7 @@ function TileContent({ tile, scale }: { tile: TileType; scale: number }) {
               color: (tile.content as { fillColor?: string }).fillColor || '#333',
             }}
             dangerouslySetInnerHTML={{
-              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="${64 * scale}" height="${64 * scale}" fill="currentColor">${(tile.content as { svgContent: string }).svgContent}</svg>`,
+              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="24" height="24" fill="currentColor">${(tile.content as { svgContent: string }).svgContent}</svg>`,
             }}
           />
         );
@@ -426,7 +440,7 @@ function TileContent({ tile, scale }: { tile: TileType; scale: number }) {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              borderRadius: `${8}px`,
+              borderRadius: '2px',
               imageRendering: 'auto',
             }}
           />
@@ -442,14 +456,14 @@ function TileContent({ tile, scale }: { tile: TileType; scale: number }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: `${26}px`,
+          fontSize: '11px',
           fontWeight: 600,
           color: '#4a4a6a',
           textAlign: 'center',
-          gap: `${8}px`,
+          gap: '2px',
         }}>
           <span>{tile.label}</span>
-          <span style={{ fontSize: `${18}px`, opacity: 0.4, fontWeight: 400 }}>
+          <span style={{ fontSize: '7px', opacity: 0.4, fontWeight: 400 }}>
             Double-click to open
           </span>
         </div>

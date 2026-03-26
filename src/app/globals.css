@@ -327,6 +327,17 @@ body {
 }
 
 /**
+ * drei <Html transform> creates a CSS3DRenderer overlay on top
+ * of the WebGL canvas. Without this rule, that overlay intercepts
+ * pointer events and prevents clicks/drags from reaching the
+ * Three.js raycaster (so tiles can't be clicked or dragged).
+ */
+canvas[data-engine] ~ div,
+canvas[data-engine] ~ div * {
+  pointer-events: none !important;
+}
+
+/**
  * Retina-specific adjustments.
  * Ensures crisp rendering on 2x displays.
  */

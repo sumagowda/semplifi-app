@@ -282,7 +282,7 @@ function CameraControls() {
       }}
       enableRotate={true}
       maxPolarAngle={Math.PI * 0.48}
-      minPolarAngle={Math.PI * 0.05}
+      minPolarAngle={0}
       panSpeed={0.8}
       rotateSpeed={0.6}
     />
@@ -359,10 +359,10 @@ function HUD() {
         <div>Drag empty: Orbit</div>
         <div>Right-drag: Pan</div>
         <div>Scroll/Pinch: Zoom</div>
-        <div>Click tile: Select & flip</div>
+        <div>Click tile: Select</div>
         <div>Drag tile: Move X/Y</div>
         <div>Shift+drag: Move Z</div>
-        <div>Dbl-click container: Drill in</div>
+        <div>Dbl-click: Drill in / Flip</div>
         <div>Esc: Back / Reset</div>
       </div>
 
