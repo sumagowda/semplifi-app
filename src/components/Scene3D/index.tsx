@@ -71,6 +71,7 @@ export default function Scene3D() {
           near: 0.1,
           far: 200,
         }}
+        dpr={[1, 2]}
         shadows="soft"
         onPointerMissed={handleMissed}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
@@ -174,22 +175,38 @@ export default function Scene3D() {
 const DEFAULT_CAM_POS = new THREE.Vector3(7, 6, 10);
 const DEFAULT_CAM_TARGET = new THREE.Vector3(0, 0, 0);
 
+/** Drill-down camera position (closer, tighter view) */
+const DRILLDOWN_CAM_POS = new THREE.Vector3(5, 4.5, 7);
+const DRILLDOWN_CAM_TARGET = new THREE.Vector3(0, 0, 0);
+
+/** Animation duration in seconds */
+const ANIM_DURATION = 0.8;
+
+/**
+ * Smooth ease-out cubic: fast start, gentle deceleration.
+ */
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 /**
  * Camera orbit/pan/zoom controls with drill-down animation.
  *
  * When focusedContainerId changes, the camera smoothly
- * animates to a new position looking at the center of
- * the focused container's content.
+ * animates to a new position with ease-out timing.
  */
 function CameraControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const isTileDragging = useNavigationStore((s) => s.isTileDragging);
   const focusedContainerId = useNavigationStore((s) => s.focusedContainerId);
 
-  // Animation targets
-  const targetPosition = useRef(DEFAULT_CAM_POS.clone());
-  const targetLookAt = useRef(DEFAULT_CAM_TARGET.clone());
+  // Animation state
   const isAnimating = useRef(false);
+  const animProgress = useRef(0);
+  const startPosition = useRef(DEFAULT_CAM_POS.clone());
+  const startTarget = useRef(DEFAULT_CAM_TARGET.clone());
+  const endPosition = useRef(DEFAULT_CAM_POS.clone());
+  const endTarget = useRef(DEFAULT_CAM_TARGET.clone());
 
   // Disable orbit controls when a tile is being dragged
   useEffect(() => {
@@ -198,48 +215,50 @@ function CameraControls() {
     }
   }, [isTileDragging]);
 
-  // When focus changes, compute new camera target and start animation
+  // When focus changes, set up the animation
   useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const camera = controlsRef.current.object;
+    const controls = controlsRef.current;
+
+    // Capture current camera state as animation start
+    startPosition.current.copy(camera.position);
+    startTarget.current.copy(controls.target);
+
     if (!focusedContainerId) {
-      // Return to default
-      targetPosition.current.copy(DEFAULT_CAM_POS);
-      targetLookAt.current.copy(DEFAULT_CAM_TARGET);
-      isAnimating.current = true;
-      return;
+      // Return to default view
+      endPosition.current.copy(DEFAULT_CAM_POS);
+      endTarget.current.copy(DEFAULT_CAM_TARGET);
+    } else {
+      // Zoom into the children grid (re-laid at origin)
+      endPosition.current.copy(DRILLDOWN_CAM_POS);
+      endTarget.current.copy(DRILLDOWN_CAM_TARGET);
     }
 
-    // Look at the center of the focused content — since children
-    // get re-laid out at origin (0,0,0), camera just needs to
-    // zoom in closer to the grid center
-    targetLookAt.current.set(0, 0, 0);
-    targetPosition.current.set(5, 5, 7);
+    // Start animation
+    animProgress.current = 0;
     isAnimating.current = true;
   }, [focusedContainerId]);
 
-  // Smooth camera animation each frame
-  useFrame(() => {
+  // Smooth time-based camera animation each frame
+  useFrame((_, delta) => {
     if (!isAnimating.current || !controlsRef.current) return;
 
     const camera = controlsRef.current.object;
     const controls = controlsRef.current;
 
-    const lerpFactor = 0.06;
+    // Advance progress (clamp to 1.0)
+    animProgress.current = Math.min(1, animProgress.current + delta / ANIM_DURATION);
+    const t = easeOutCubic(animProgress.current);
 
-    // Lerp camera position
-    camera.position.lerp(targetPosition.current, lerpFactor);
-
-    // Lerp orbit target (lookAt)
-    controls.target.lerp(targetLookAt.current, lerpFactor);
+    // Interpolate position and target
+    camera.position.lerpVectors(startPosition.current, endPosition.current, t);
+    controls.target.lerpVectors(startTarget.current, endTarget.current, t);
     controls.update();
 
-    // Check if close enough to stop
-    const posDist = camera.position.distanceTo(targetPosition.current);
-    const targetDist = controls.target.distanceTo(targetLookAt.current);
-
-    if (posDist < 0.01 && targetDist < 0.01) {
-      camera.position.copy(targetPosition.current);
-      controls.target.copy(targetLookAt.current);
-      controls.update();
+    // Done?
+    if (animProgress.current >= 1) {
       isAnimating.current = false;
     }
   });
