@@ -62,7 +62,7 @@ export default function Scene3D() {
   }, [selectTile]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#ebeef3' }}>
+    <div style={{ width: '100%', height: '100%', background: '#ebeef3', position: 'relative' }}>
       <Canvas
         camera={{
           // Angled 3/4 view — looking down and to the side
