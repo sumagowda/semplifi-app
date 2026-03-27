@@ -301,7 +301,8 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   width: `${cssW}px`,
                   height: `${cssH}px`,
                   overflow: 'hidden',
-                  padding: tile.type === 'raster' ? '2px' : '4px',
+                  padding: tile.type === 'raster' ? '2px'
+                    : tile.type === 'vector' ? '0' : '4px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
                   fontSize: '12px',
                   color: '#1a1a2e',
@@ -420,10 +421,11 @@ function TileContent({ tile }: { tile: TileType }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              padding: '2px',
               color: (tile.content as { fillColor?: string }).fillColor || '#333',
             }}
             dangerouslySetInnerHTML={{
-              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="32" height="32" fill="currentColor">${(tile.content as { svgContent: string }).svgContent}</svg>`,
+              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="100%" height="100%" fill="currentColor" style="max-width:100%;max-height:100%;shape-rendering:geometricPrecision">${(tile.content as { svgContent: string }).svgContent}</svg>`,
             }}
           />
         );
