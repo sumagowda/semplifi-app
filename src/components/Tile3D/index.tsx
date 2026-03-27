@@ -223,10 +223,12 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   // We use a higher distanceFactor for readable text, and scale CSS dims
   // inversely so the HTML still fits within the card boundaries.
   const distFactor = 3;
-  // Empirically tuned: 0.5 only fills ~60% of card; 0.8 fills ~90%.
-  const cssScaleW = 0.8;
-  // Height maxed to 1.0 so text fills the full card vertically.
-  const cssScaleH = 1.0;
+  const isRaster = tile.type === 'raster';
+  // Raster: scale up to fill card edge-to-edge (overflow:hidden clips any excess).
+  // Text/container: 0.8 width fills ~90% which leaves comfortable padding.
+  const cssScaleW = isRaster ? 1.35 : 0.8;
+  // Height: raster fills fully, text/container also max out.
+  const cssScaleH = isRaster ? 1.35 : 1.0;
   const cssW = Math.round(width * cssScaleW);
   const cssH = Math.round(height * cssScaleH);
 
@@ -334,7 +336,7 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   width: `${cssW}px`,
                   height: `${cssH}px`,
                   overflow: 'hidden',
-                  padding: tile.type === 'raster' ? '2px'
+                  padding: tile.type === 'raster' ? '0'
                     : tile.type === 'vector' ? '0' : '4px',
                   fontFamily: 'system-ui, -apple-system, sans-serif',
                   fontSize: '12px',
@@ -343,6 +345,16 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   overflowWrap: 'break-word',
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
+                  // Raster tiles: CSS border replicates the card edge + accent stripes
+                  // since the HTML image covers the 3D mesh visuals.
+                  ...(isRaster ? {
+                    border: `3px solid rgba(0, 0, 0, 0.06)`,
+                    borderLeft: `6px solid rgba(245, 158, 11, 0.8)`,
+                    borderTop: `4px solid rgba(245, 158, 11, 0.5)`,
+                    borderRadius: '6px',
+                    boxSizing: 'border-box' as const,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                  } : {}),
                 }}
               >
                 <TileContent tile={tile} />
@@ -505,7 +517,7 @@ function TileContent({ tile }: { tile: TileType }) {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              borderRadius: '2px',
+              display: 'block',
               imageRendering: 'auto',
             }}
           />
