@@ -195,16 +195,15 @@ const basilOverview: TextTile = {
   },
 };
 
-const basilIcon: VectorTile = {
+const basilIcon: RasterTile = {
   id: 'basil-icon',
-  type: 'vector',
+  type: 'raster',
   level: 2,
   position: { row: 0, col: 0, width: 89, height: 144 },
   parentId: 'basil',
   content: {
-    svgContent: basil_svg,
-    viewBox: '0 0 24 24',
-    fillColor: '#22c55e',
+    src: '/images/basil.png',
+    alt: 'Fresh basil leaves',
   },
 };
 
@@ -256,16 +255,15 @@ const rosemaryOverview: TextTile = {
   },
 };
 
-const rosemaryIcon: VectorTile = {
+const rosemaryIcon: RasterTile = {
   id: 'rosemary-icon',
-  type: 'vector',
+  type: 'raster',
   level: 2,
   position: { row: 0, col: 0, width: 89, height: 144 },
   parentId: 'rosemary',
   content: {
-    svgContent: rosemary_svg,
-    viewBox: '0 0 24 24',
-    fillColor: '#16a34a',
+    src: '/images/rosemary.png',
+    alt: 'Fresh rosemary sprigs',
   },
 };
 
@@ -295,16 +293,15 @@ const thymeOverview: TextTile = {
   },
 };
 
-const thymeIcon: VectorTile = {
+const thymeIcon: RasterTile = {
   id: 'thyme-icon',
-  type: 'vector',
+  type: 'raster',
   level: 2,
   position: { row: 0, col: 0, width: 89, height: 144 },
   parentId: 'thyme',
   content: {
-    svgContent: thyme_svg,
-    viewBox: '0 0 24 24',
-    fillColor: '#65a30d',
+    src: '/images/thyme.png',
+    alt: 'Fresh thyme sprigs',
   },
 };
 
@@ -401,29 +398,27 @@ const herbTitle: TextTile = {
   },
 };
 
-const mintIcon: VectorTile = {
+const mintIcon: RasterTile = {
   id: 'mint-icon',
-  type: 'vector',
+  type: 'raster',
   level: 1,
   position: { row: 1, col: 0, width: 89, height: 233 },
   parentId: 'root',
   content: {
-    svgContent: mint_svg,
-    viewBox: '0 0 24 24',
-    fillColor: '#10b981',
+    src: '/images/mint.png',
+    alt: 'Fresh mint leaves',
   },
 };
 
-const cilantroIcon: VectorTile = {
+const cilantroIcon: RasterTile = {
   id: 'cilantro-icon',
-  type: 'vector',
+  type: 'raster',
   level: 1,
   position: { row: 2, col: 4, width: 89, height: 144 },
   parentId: 'root',
   content: {
-    svgContent: cilantro_svg,
-    viewBox: '0 0 24 24',
-    fillColor: '#34d399',
+    src: '/images/cilantro.png',
+    alt: 'Fresh cilantro leaves',
   },
 };
 

@@ -47,3 +47,6 @@ next-env.d.ts
 *.png
 *.jpg
 *.jpeg
+
+# but allow public assets (stock photos for the app)
+!public/images/**
