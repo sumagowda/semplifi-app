@@ -224,9 +224,11 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
   // inversely so the HTML still fits within the card boundaries.
   const distFactor = 3;
   // Empirically tuned: 0.5 only fills ~60% of card; 0.8 fills ~90%.
-  const cssScale = 0.8;
-  const cssW = Math.round(width * cssScale);
-  const cssH = Math.round(height * cssScale);
+  const cssScaleW = 0.8;
+  // Height maxed to 1.0 so text fills the full card vertically.
+  const cssScaleH = 1.0;
+  const cssW = Math.round(width * cssScaleW);
+  const cssH = Math.round(height * cssScaleH);
 
   return (
     <group ref={posGroupRef} position={currentPos}>
@@ -339,7 +341,6 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
                   color: '#1a1a2e',
                   lineHeight: '1.3',
                   overflowWrap: 'break-word',
-                  hyphens: 'auto',
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
                 }}
@@ -432,22 +433,31 @@ function TileContent({ tile }: { tile: TileType }) {
         <div>
           {/* Type badge (Gestalt: Similarity — consistent type labeling) */}
           <div style={{
-            fontSize: '7px',
+            fontSize: '6px',
             fontWeight: 600,
             letterSpacing: '0.08em',
             color: TYPE_COLORS.text,
             opacity: 0.5,
-            marginBottom: '3px',
+            marginBottom: '1px',
           }}>
             {TYPE_LABELS.text}
           </div>
           {'content' in tile && (tile.content as { heading?: string }).heading && (
-            <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 3px 0', lineHeight: 1.2, color: '#1e1e3a' }}>
+            <h3 style={{
+              fontSize: '13px',
+              fontWeight: 700,
+              margin: '0 0 2px 0',
+              lineHeight: 1.2,
+              color: '#1e1e3a',
+              hyphens: 'none' as const,
+              overflowWrap: 'normal',
+              wordBreak: 'normal',
+            }}>
               {(tile.content as { heading?: string }).heading}
             </h3>
           )}
           {'content' in tile && (tile.content as { body?: string }).body && (
-            <p style={{ margin: 0, fontSize: '11px', color: '#4a4a6a', lineHeight: 1.35 }}>
+            <p style={{ margin: 0, fontSize: '11px', color: '#4a4a6a', lineHeight: 1.3 }}>
               {(tile.content as { body?: string }).body}
             </p>
           )}
@@ -459,12 +469,12 @@ function TileContent({ tile }: { tile: TileType }) {
           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Type badge */}
             <div style={{
-              fontSize: '7px',
+              fontSize: '6px',
               fontWeight: 600,
               letterSpacing: '0.08em',
               color: TYPE_COLORS.vector,
               opacity: 0.5,
-              padding: '3px 4px 0',
+              padding: '2px 4px 0',
             }}>
               {TYPE_LABELS.vector}
             </div>
@@ -513,19 +523,19 @@ function TileContent({ tile }: { tile: TileType }) {
         }}>
           {/* Type badge */}
           <div style={{
-            fontSize: '7px',
+            fontSize: '6px',
             fontWeight: 600,
             letterSpacing: '0.08em',
             color: TYPE_COLORS.container,
             opacity: 0.5,
-            padding: '4px 6px 0',
+            padding: '2px 4px 0',
           }}>
             {TYPE_LABELS.container}
           </div>
           {/* Inner region with dashed border (Gestalt: Common Region + Closure) */}
           <div style={{
             flex: 1,
-            margin: '4px',
+            margin: '2px',
             border: '1.5px dashed rgba(139, 92, 246, 0.25)',
             borderRadius: '4px',
             display: 'flex',
@@ -533,23 +543,25 @@ function TileContent({ tile }: { tile: TileType }) {
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            gap: '6px',
-            padding: '6px',
+            gap: '3px',
+            padding: '3px',
+            overflow: 'hidden',
           }}>
             {/* Folder icon hint */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.45 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.45, flexShrink: 0 }}>
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
             </svg>
             <span style={{
-              fontSize: '27px',
+              fontSize: '20px',
               fontWeight: 700,
               color: '#3a3a5c',
               letterSpacing: '-0.02em',
+              lineHeight: 1.15,
             }}>
               {tile.label}
             </span>
             <span style={{
-              fontSize: '10px',
+              fontSize: '8px',
               opacity: 0.3,
               fontWeight: 400,
               color: '#6b7280',
