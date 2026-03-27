@@ -24,12 +24,31 @@ const TILE_DEPTH = 0.04;
 /** Corner radius for the rounded card */
 const CORNER_RADIUS = 0.03;
 
-/** Type-based accent colors for card borders */
+/** Type-based accent colors (Gestalt: Similarity — same type = same color) */
 const TYPE_COLORS: Record<string, string> = {
   text: '#6366f1',
   raster: '#f59e0b',
   vector: '#10b981',
   container: '#8b5cf6',
+};
+
+/**
+ * Type-based card surface tints (Gestalt: Similarity).
+ * Each tile type gets a subtle tint so the eye groups same-type tiles together.
+ */
+const TYPE_CARD_TINTS: Record<string, string> = {
+  text: '#f5f5ff',      // faint indigo
+  raster: '#fffdf5',    // faint amber
+  vector: '#f2fdf8',    // faint emerald
+  container: '#f8f5ff', // faint purple
+};
+
+/** Human-readable type labels */
+const TYPE_LABELS: Record<string, string> = {
+  text: 'TEXT',
+  raster: 'IMAGE',
+  vector: 'ICON',
+  container: 'GROUP',
 };
 
 /**
@@ -195,9 +214,9 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
     [tile.id, isContainer, isDetached, snapToGrid, drillDown, toggleFlip],
   );
 
-  // Card surface color
-  const cardColor = isContainer ? '#f8f9fc' : '#ffffff';
-  const cardOpacity = isContainer ? 0.85 : 1.0;
+  // Card surface color — type-specific tint (Gestalt: Similarity)
+  const cardColor = TYPE_CARD_TINTS[tile.type] || '#ffffff';
+  const cardOpacity = isContainer ? 0.88 : 1.0;
 
   // HTML sizing: distanceFactor controls how large CSS pixels appear in 3D.
   // At distanceFactor=1.5, `width` CSS px ≈ card width in world space.
@@ -260,23 +279,35 @@ export default function Tile3D({ tile, position, width, height }: Tile3DProps) {
             </mesh>
           )}
 
-          {/* Thin accent stripe along the left edge */}
+          {/* Accent stripe along the left edge (Gestalt: Continuity) */}
           <mesh
-            position={[-w / 2 + 0.015, 0, TILE_DEPTH / 2 + 0.001]}
+            position={[-w / 2 + 0.02, 0, TILE_DEPTH / 2 + 0.001]}
           >
-            <planeGeometry args={[0.03, h - 0.02]} />
+            <planeGeometry args={[0.04, h - 0.01]} />
             <meshBasicMaterial
               color={accentColor}
               transparent
-              opacity={isContainer ? 0.4 : 0.7}
+              opacity={isContainer ? 0.5 : 0.8}
+            />
+          </mesh>
+
+          {/* Top accent bar (Gestalt: Continuity — type color band) */}
+          <mesh
+            position={[0, h / 2 - 0.015, TILE_DEPTH / 2 + 0.001]}
+          >
+            <planeGeometry args={[w - 0.02, 0.03]} />
+            <meshBasicMaterial
+              color={accentColor}
+              transparent
+              opacity={isContainer ? 0.3 : 0.5}
             />
           </mesh>
 
           {/* Container badge — small dot indicator */}
           {isContainer && !isFlipped && (
             <mesh position={[w / 2 - 0.08, h / 2 - 0.08, TILE_DEPTH / 2 + 0.002]}>
-              <circleGeometry args={[0.04, 16]} />
-              <meshBasicMaterial color={accentColor} transparent opacity={0.5} />
+              <circleGeometry args={[0.05, 16]} />
+              <meshBasicMaterial color={accentColor} transparent opacity={0.6} />
             </mesh>
           )}
 
@@ -399,13 +430,24 @@ function TileContent({ tile }: { tile: TileType }) {
     case 'text':
       return (
         <div>
+          {/* Type badge (Gestalt: Similarity — consistent type labeling) */}
+          <div style={{
+            fontSize: '7px',
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            color: TYPE_COLORS.text,
+            opacity: 0.5,
+            marginBottom: '3px',
+          }}>
+            {TYPE_LABELS.text}
+          </div>
           {'content' in tile && (tile.content as { heading?: string }).heading && (
-            <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 3px 0', lineHeight: 1.2 }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 3px 0', lineHeight: 1.2, color: '#1e1e3a' }}>
               {(tile.content as { heading?: string }).heading}
             </h3>
           )}
           {'content' in tile && (tile.content as { body?: string }).body && (
-            <p style={{ margin: 0, fontSize: '11px', opacity: 0.75, lineHeight: 1.3 }}>
+            <p style={{ margin: 0, fontSize: '11px', color: '#4a4a6a', lineHeight: 1.35 }}>
               {(tile.content as { body?: string }).body}
             </p>
           )}
@@ -414,20 +456,32 @@ function TileContent({ tile }: { tile: TileType }) {
     case 'vector':
       if ('content' in tile && (tile.content as { svgContent?: string }).svgContent) {
         return (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '2px',
-              color: (tile.content as { fillColor?: string }).fillColor || '#333',
-            }}
-            dangerouslySetInnerHTML={{
-              __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="100%" height="100%" fill="currentColor" style="max-width:100%;max-height:100%;shape-rendering:geometricPrecision">${(tile.content as { svgContent: string }).svgContent}</svg>`,
-            }}
-          />
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Type badge */}
+            <div style={{
+              fontSize: '7px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              color: TYPE_COLORS.vector,
+              opacity: 0.5,
+              padding: '3px 4px 0',
+            }}>
+              {TYPE_LABELS.vector}
+            </div>
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '2px',
+                color: (tile.content as { fillColor?: string }).fillColor || '#333',
+              }}
+              dangerouslySetInnerHTML={{
+                __html: `<svg viewBox="${(tile.content as { viewBox?: string }).viewBox || '0 0 24 24'}" width="100%" height="100%" fill="currentColor" style="max-width:100%;max-height:100%;shape-rendering:geometricPrecision">${(tile.content as { svgContent: string }).svgContent}</svg>`,
+              }}
+            />
+          </div>
         );
       }
       return null;
@@ -455,33 +509,54 @@ function TileContent({ tile }: { tile: TileType }) {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          gap: '6px',
-          padding: '8px',
           overflowWrap: 'break-word',
         }}>
-          {/* Folder icon hint */}
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-          <span style={{
-            fontSize: '27px',
-            fontWeight: 700,
-            color: '#3a3a5c',
-            letterSpacing: '-0.02em',
+          {/* Type badge */}
+          <div style={{
+            fontSize: '7px',
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            color: TYPE_COLORS.container,
+            opacity: 0.5,
+            padding: '4px 6px 0',
           }}>
-            {tile.label}
-          </span>
-          <span style={{
-            fontSize: '10px',
-            opacity: 0.35,
-            fontWeight: 400,
-            color: '#6b7280',
+            {TYPE_LABELS.container}
+          </div>
+          {/* Inner region with dashed border (Gestalt: Common Region + Closure) */}
+          <div style={{
+            flex: 1,
+            margin: '4px',
+            border: '1.5px dashed rgba(139, 92, 246, 0.25)',
+            borderRadius: '4px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            gap: '6px',
+            padding: '6px',
           }}>
-            Double-click to open
-          </span>
+            {/* Folder icon hint */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.45 }}>
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            <span style={{
+              fontSize: '27px',
+              fontWeight: 700,
+              color: '#3a3a5c',
+              letterSpacing: '-0.02em',
+            }}>
+              {tile.label}
+            </span>
+            <span style={{
+              fontSize: '10px',
+              opacity: 0.3,
+              fontWeight: 400,
+              color: '#6b7280',
+            }}>
+              Double-click to open
+            </span>
+          </div>
         </div>
       );
     default:

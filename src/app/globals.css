@@ -165,6 +165,26 @@ body {
 .scene3d-legend strong {
   color: #374151;
   font-size: 12px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+/**
+ * Legend control groups (Gestalt: Proximity — related controls grouped together).
+ */
+.scene3d-legend-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.scene3d-legend-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 /**

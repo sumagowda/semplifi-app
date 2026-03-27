@@ -62,7 +62,7 @@ export default function Scene3D() {
   }, [selectTile]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#e8ecf0' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#ebeef3' }}>
       <Canvas
         camera={{
           // Angled 3/4 view — looking down and to the side
@@ -113,7 +113,7 @@ export default function Scene3D() {
         {/* Camera controls — handles orbit, pan, zoom, and drill-down animation */}
         <CameraControls />
 
-        {/* Ground plane — visible floor that receives shadows */}
+        {/* Ground plane — recessive floor (Gestalt: Figure-Ground) */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, -4, 0]}
@@ -121,34 +121,34 @@ export default function Scene3D() {
         >
           <planeGeometry args={[100, 100]} />
           <meshStandardMaterial
-            color="#f0f0f4"
-            roughness={0.9}
+            color="#e8e8ee"
+            roughness={0.95}
             metalness={0.0}
           />
         </mesh>
 
-        {/* Contact shadows for soft, realistic shadow under tiles */}
+        {/* Contact shadows — stronger for better figure-ground separation */}
         <ContactShadows
           position={[0, -3.99, 0]}
-          opacity={0.35}
+          opacity={0.45}
           scale={30}
-          blur={2.5}
+          blur={2}
           far={10}
-          color="#334155"
+          color="#2d3748"
         />
 
-        {/* Reference grid on the floor */}
+        {/* Reference grid — subtle, recessive (Gestalt: Figure-Ground) */}
         <Grid
           position={[0, -3.98, 0]}
           args={[50, 50]}
           cellSize={1}
-          cellThickness={0.6}
-          cellColor="#d0d4dc"
+          cellThickness={0.4}
+          cellColor="#d8dce4"
           sectionSize={5}
-          sectionThickness={1.2}
-          sectionColor="#b8bcc8"
-          fadeDistance={30}
-          fadeStrength={1.5}
+          sectionThickness={0.8}
+          sectionColor="#c4c8d4"
+          fadeDistance={25}
+          fadeStrength={2}
           infiniteGrid
         />
 
@@ -353,17 +353,26 @@ function HUD() {
         </div>
       )}
 
-      {/* Controls legend */}
+      {/* Controls legend — grouped by action type (Gestalt: Proximity) */}
       <div className="scene3d-legend">
         <div><strong>Controls</strong></div>
-        <div>Drag empty: Orbit</div>
-        <div>Right-drag: Pan</div>
-        <div>Scroll/Pinch: Zoom</div>
-        <div>Click tile: Select</div>
-        <div>Drag tile: Move X/Y</div>
-        <div>Shift+drag: Move Z</div>
-        <div>Dbl-click: Drill in / Flip</div>
-        <div>Esc: Back / Reset</div>
+        <div className="scene3d-legend-group">
+          <div className="scene3d-legend-label">Navigate</div>
+          <div>Drag: Orbit</div>
+          <div>Right-drag: Pan</div>
+          <div>Scroll: Zoom</div>
+        </div>
+        <div className="scene3d-legend-group">
+          <div className="scene3d-legend-label">Interact</div>
+          <div>Click: Select</div>
+          <div>Drag tile: Move</div>
+          <div>Shift+drag: Z-axis</div>
+        </div>
+        <div className="scene3d-legend-group">
+          <div className="scene3d-legend-label">Actions</div>
+          <div>Dbl-click: Drill / Flip</div>
+          <div>Esc: Back / Reset</div>
+        </div>
       </div>
 
       {/* Selected tile info */}
