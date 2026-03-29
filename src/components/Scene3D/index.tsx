@@ -267,7 +267,7 @@ function CameraControls() {
     <OrbitControls
       ref={controlsRef}
       enableDamping
-      dampingFactor={0.08}
+      dampingFactor={0.12}
       minDistance={3}
       maxDistance={50}
       target={[0, 0, 0]}
@@ -283,6 +283,7 @@ function CameraControls() {
       enableRotate={true}
       maxPolarAngle={Math.PI * 0.48}
       minPolarAngle={0}
+      zoomSpeed={0.5}
       panSpeed={0.8}
       rotateSpeed={0.6}
     />

@@ -47,12 +47,6 @@ const SIDEBAR_SECTIONS = [
         label: 'Layers',
         hint: 'Depth & layer management',
       },
-    ],
-  },
-  {
-    id: 'playback',
-    label: 'Playback',
-    items: [
       {
         id: 'animation',
         icon: (
@@ -62,17 +56,7 @@ const SIDEBAR_SECTIONS = [
           </svg>
         ),
         label: 'Animation',
-        hint: 'Timeline & keyframes',
-      },
-      {
-        id: 'speed',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-        ),
-        label: 'Speed',
-        hint: 'Custom playback speed',
+        hint: 'Timeline, keyframes & speed',
       },
     ],
   },
@@ -104,6 +88,32 @@ const SIDEBAR_SECTIONS = [
         hint: 'Export presentation',
       },
     ],
+  },
+];
+
+/** Bottom-pinned items — separated from main nav (Gestalt: Proximity) */
+const SIDEBAR_BOTTOM_ITEMS = [
+  {
+    id: 'settings',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+    label: 'Settings',
+    hint: 'Preferences & configuration',
+  },
+  {
+    id: 'account',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+    label: 'Account',
+    hint: 'Profile & account settings',
   },
 ];
 
@@ -352,18 +362,79 @@ export default function Home() {
             </div>
           ))}
 
-          {/* Bottom spacer + version (Gestalt: Proximity — separated from nav items) */}
+          {/* Spacer pushes bottom items down (Gestalt: Proximity — spatial gap signals different group) */}
           <div style={{ flex: 1 }} />
+
+          {/* Bottom-pinned section: Settings & Account */}
           <div
             style={{
-              padding: '12px 17px',
+              borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+              paddingTop: 4,
+              paddingBottom: 4,
+            }}
+          >
+            {SIDEBAR_BOTTOM_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveItem(item.id)}
+                title={item.hint}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '9px 14px',
+                  background: activeItem === item.id
+                    ? 'rgba(74, 124, 255, 0.07)'
+                    : 'transparent',
+                  border: 'none',
+                  borderLeft: activeItem === item.id
+                    ? '3px solid #4a7cff'
+                    : '3px solid transparent',
+                  color: activeItem === item.id ? '#4a7cff' : '#9ca3af',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: activeItem === item.id ? 600 : 500,
+                  transition: 'background 0.15s ease, color 0.15s ease',
+                  whiteSpace: 'nowrap',
+                  textAlign: 'left',
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 24,
+                    height: 24,
+                  }}
+                >
+                  {item.icon}
+                </span>
+                <span
+                  style={{
+                    opacity: sidebarExpanded ? 1 : 0,
+                    transition: 'opacity 0.15s ease',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Version label */}
+          <div
+            style={{
+              padding: '6px 17px 10px',
               fontSize: 10,
               color: '#c4c8d4',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               opacity: sidebarExpanded ? 1 : 0,
               transition: 'opacity 0.15s ease',
-              borderTop: '1px solid rgba(0, 0, 0, 0.05)',
             }}
           >
             v0.1.0 Preview
